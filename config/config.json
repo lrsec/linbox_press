@@ -1,0 +1,7 @@
+{
+    "server_port": "localhost",
+    "server_ip": "9502",
+    "sender_start": 1,
+    "receiver_start": 10000000,
+    "threads": 1
+}
