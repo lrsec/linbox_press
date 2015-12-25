@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	log "github.com/cihub/seelog"
+	"linbox_stress/codec"
 	"linbox_stress/message"
 	"net"
 	"os"
@@ -16,29 +17,48 @@ import (
 func main() {
 	defer log.Flush()
 
-	file, _ := os.Open("conf.json")
+	file, err := os.Open("/Users/lrsec/Work/medtree/linbox_stress/bin/config.json")
+	//file, err := os.Open("config.json")
+	if err != nil {
+		log.Error("Can not open config file", err)
+		return
+	}
+
 	decoder := json.NewDecoder(file)
 	configuration := config{}
-	err := decoder.Decode(&configuration)
+	err = decoder.Decode(&configuration)
 	if err != nil {
 		log.Error("Can not read config file:", err)
 		return
 	}
 
-	serverAddress := configuration.serverHost + ":" + configuration.serverIp
+	serverAddress := configuration.ServerIp + ":" + configuration.ServerPort
 
-	for i := 0; i < configuration.threads; i++ {
-		sender := configuration.senderStart + int64(i)
-		receiver := configuration.receiverStart + int64(i)
+	log.Info("Server address from config: ", serverAddress)
 
-		sendConn, receiveConn, closeSignal, err := createReadWritePair(serverAddress, sender, receiver)
+	for i := 0; i < configuration.Threads; i++ {
+		sender := configuration.SenderStart + int64(i)
+		receiver := configuration.ReceiverStart + int64(i)
+
+		sendConn, sendCoder, err := createConnect(serverAddress, sender, "token")
 		if err != nil {
-			log.Errorf("Connect to server address fail for id pair: %d - %d\n", sender, receiver)
+			log.Errorf("Create connection for %d fail. ", sender, err)
+
 			continue
 		}
 
-		go sendMessage(sendConn, closeSignal, sender, receiver)
-		go receiveMessage(receiveConn, closeSignal, sender, receiver)
+		receiveConn, receiveCoder, err := createConnect(serverAddress, receiver, "token")
+		if err != nil {
+			log.Errorf("Create connection for %d fail. ", receiver, err)
+
+			sendConn.Close()
+			continue
+		}
+
+		closeSignal := make(chan bool)
+
+		go sendMessage(sendConn, sendCoder, closeSignal, sender, receiver)
+		go receiveMessage(receiveConn, receiveCoder, closeSignal, sender, receiver)
 	}
 
 	for {
@@ -48,59 +68,27 @@ func main() {
 }
 
 type config struct {
-	serverHost    string `json:"server_host"`
-	serverIp      string `json:"server_ip"`
-	senderStart   int64  `json:"sender_start"`
-	receiverStart int64  `json:"receiver_start"`
-	threads       int    `json:"threads"`
+	ServerIp      string `json:"server_ip"`
+	ServerPort    string `json:"server_port"`
+	SenderStart   int64  `json:"sender_start"`
+	ReceiverStart int64  `json:"receiver_start"`
+	Threads       int    `json:"threads"`
 }
 
-func createReadWritePair(address string, fromUserId, remoteUserId int64) (sendConn, receiveConn net.Conn, closeSignal chan bool, err error) {
-	defer func() {
-
-		if r := recover(); r != nil {
-			if sendConn != nil {
-				sendConn.Close()
-			}
-			if receiveConn != nil {
-				receiveConn.Close()
-			}
-			if closeSignal != nil {
-				close(closeSignal)
-			}
-
-			sendConn = nil
-			receiveConn = nil
-			closeSignal = nil
-		}
-	}()
-
-	sendConn, err = createConnect(address, fromUserId, "token")
-	if err != nil {
-		panic(err)
-	}
-
-	receiveConn, err = createConnect(address, remoteUserId, "token")
-	if err != nil {
-		panic(err)
-	}
-
-	closeSignal = make(chan bool)
-
-	return
-}
-
-func createConnect(address string, userId int64, token string) (conn net.Conn, err error) {
+func createConnect(address string, userId int64, token string) (conn net.Conn, coder *codec.MsgCodec, err error) {
 	conn, err = net.DialTimeout("tcp4", address, 6*time.Second)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
-			err, ok := r.(error)
-			if ok {
-				log.Errorf("Create connection fail", err)
+
+			switch i := r.(type) {
+			case string, error:
+				log.Error("Create connection fail ", i)
+			default:
+				log.Error("Create connection fail ")
 			}
 
 			if conn != nil {
@@ -108,12 +96,19 @@ func createConnect(address string, userId int64, token string) (conn net.Conn, e
 			}
 
 			conn = nil
+		} else {
+			conn.SetDeadline(time.Time{})
 		}
 	}()
 
+	coder, err = codec.NewMsgCodec()
+	if err != nil {
+		panic(err)
+	}
+
 	localAddress := strings.Split(conn.LocalAddr().String(), ":")
 	authReqeust := message.NewAuthRequest(userId, token, localAddress[0], localAddress[1], "test-env")
-	content, err := message.BuildBytes(message.AUTH_REQUEST_MSG, authReqeust)
+	content, err := coder.Encode(message.AUTH_REQUEST_MSG, authReqeust)
 	if err != nil {
 		panic(err)
 	}
@@ -123,28 +118,49 @@ func createConnect(address string, userId int64, token string) (conn net.Conn, e
 		panic(err)
 	}
 
-	reader := bufio.NewReaderSize(conn, 100)
+	reader := bufio.NewReaderSize(conn, 4096)
 
+	// version 信息,不关心
+	conn.SetDeadline(time.Now().Add(6 * time.Second))
+	_, err = reader.Discard(2)
+	if err != nil {
+		panic(err)
+	}
+
+	// Type
+	conn.SetDeadline(time.Now().Add(6 * time.Second))
 	typeRaw, err := reader.Peek(2)
 	if err != nil {
 		panic(err)
 	}
+	reader.Discard(2)
+
+	log.Info("type: ", typeRaw)
 
 	responseType, err := message.ParseRequestResponseType(uint64(binary.BigEndian.Uint16(typeRaw)))
-	if responseType != message.AUTH_REQUEST_MSG {
+	if responseType != message.AUTH_RESPONSE_MSG {
 		panic(errors.New("The first answer is not AuthResponse"))
 	}
 
+	// length
+	conn.SetDeadline(time.Now().Add(6 * time.Second))
 	lengthRaw, err := reader.Peek(4)
 	if err != nil {
 		panic(err)
 	}
+	reader.Discard(4)
+
+	log.Info("length: ", lengthRaw)
 
 	length := binary.BigEndian.Uint32(lengthRaw)
+
+	// content
+	conn.SetDeadline(time.Now().Add(6 * time.Second))
 	contentRaw, err := reader.Peek(int(length))
 	if err != nil {
 		panic(err)
 	}
+	reader.Discard(int(length))
 
 	response := message.AuthResponse{}
 	err = json.Unmarshal(contentRaw, message.AuthResponse{})
@@ -156,15 +172,17 @@ func createConnect(address string, userId int64, token string) (conn net.Conn, e
 		panic(errors.New("Auth Response fail: " + response.ErrMsg))
 	}
 
-	return conn, nil
+	return conn, coder, nil
 }
 
-func sendMessage(conn net.Conn, closeSignal chan bool, sender, receiver int64) {
+func sendMessage(conn net.Conn, coder *codec.MsgCodec, closeSignal chan bool, sender, receiver int64) {
 	defer func() {
 		if r := recover(); r != nil {
-			err, ok := r.(error)
-			if ok {
-				log.Errorf("send message from %d to %d panic.", sender, receiver, err)
+			switch i := r.(type) {
+			case string, error:
+				log.Error("Create connection fail", i)
+			default:
+				log.Error("Create connection fail")
 			}
 
 			if conn != nil {
@@ -179,6 +197,6 @@ func sendMessage(conn net.Conn, closeSignal chan bool, sender, receiver int64) {
 
 }
 
-func receiveMessage(conn net.Conn, closeSignal chan bool, sender, receiver int64) {
+func receiveMessage(conn net.Conn, coder *codec.MsgCodec, closeSignal chan bool, sender, receiver int64) {
 
 }
