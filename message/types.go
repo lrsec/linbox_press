@@ -10,6 +10,19 @@ const (
 	AUTH_RESPONSE_MSG             RequestResponseType = 2
 )
 
+func (rrt RequestResponseType) Name() string {
+	switch rrt {
+	case INVALID_REQUEST_RESPONSE_TYPE:
+		return "INVALID_REQUEST_RESPONSE_TYPE"
+	case AUTH_REQUEST_MSG:
+		return "AUTH_REQUEST_MSG"
+	case AUTH_RESPONSE_MSG:
+		return "AUTH_RESPONSE_MSG"
+	}
+
+	return ""
+}
+
 type MessageType int
 
 const (

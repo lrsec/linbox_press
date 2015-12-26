@@ -34,9 +34,6 @@ func (codec *MsgCodec) Encode(rrType message.RequestResponseType, content interf
 	}
 
 	encrypted := codec.aesCodec.Encrypt(contentRaw)
-
-	log.Info("Encrypted length: ", len(encrypted))
-
 	var length uint32 = uint32(len(encrypted))
 
 	result := make([]byte, length+2+2+4)
@@ -46,9 +43,17 @@ func (codec *MsgCodec) Encode(rrType message.RequestResponseType, content interf
 	binary.BigEndian.PutUint32(result[4:8], length)
 	copy(result[8:], encrypted)
 
-	log.Info("Byte Array length: ", len(result))
-
-	log.Info("Byte Array: ", result)
+	log.Trace("After Encode: ", result)
 
 	return result, nil
+}
+
+func (codec *MsgCodec) Decode(content []byte, result interface{}) error {
+	decrypted := codec.aesCodec.Decrypt(content)
+
+	log.Info("Decrypted: ", string(decrypted))
+
+	err := json.Unmarshal(decrypted, result)
+
+	return err
 }

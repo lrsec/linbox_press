@@ -135,8 +135,6 @@ func createConnect(address string, userId int64, token string) (conn net.Conn, c
 	}
 	reader.Discard(2)
 
-	log.Info("type: ", typeRaw)
-
 	responseType, err := message.ParseRequestResponseType(uint64(binary.BigEndian.Uint16(typeRaw)))
 	if responseType != message.AUTH_RESPONSE_MSG {
 		panic(errors.New("The first answer is not AuthResponse"))
@@ -150,8 +148,6 @@ func createConnect(address string, userId int64, token string) (conn net.Conn, c
 	}
 	reader.Discard(4)
 
-	log.Info("length: ", lengthRaw)
-
 	length := binary.BigEndian.Uint32(lengthRaw)
 
 	// content
@@ -163,7 +159,7 @@ func createConnect(address string, userId int64, token string) (conn net.Conn, c
 	reader.Discard(int(length))
 
 	response := message.AuthResponse{}
-	err = json.Unmarshal(contentRaw, message.AuthResponse{})
+	err = coder.Decode(contentRaw, &response)
 	if err != nil {
 		panic(err)
 	}
