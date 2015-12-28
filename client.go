@@ -64,7 +64,6 @@ func main() {
 	for {
 
 	}
-
 }
 
 type config struct {
@@ -190,6 +189,10 @@ func sendMessage(conn net.Conn, coder *codec.MsgCodec, closeSignal chan bool, se
 			close(closeSignal)
 		}
 	}()
+
+	for {
+
+	}
 
 }
 
