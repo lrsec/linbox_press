@@ -8,6 +8,9 @@ const (
 	INVALID_REQUEST_RESPONSE_TYPE RequestResponseType = 0
 	AUTH_REQUEST_MSG              RequestResponseType = 1
 	AUTH_RESPONSE_MSG             RequestResponseType = 2
+
+	SEND_MSG_REQUEST_MSG  RequestResponseType = 9
+	SEND_MSG_RESPONSE_MSG RequestResponseType = 10
 )
 
 func (rrt RequestResponseType) Name() string {
@@ -26,9 +29,9 @@ func (rrt RequestResponseType) Name() string {
 type MessageType int
 
 const (
-	All     MessageType = 1
-	Session MessageType = 2
-	Group   MessageType = 3
+	MESSAGE_TYPE_ALL     MessageType = 1
+	MESSAGE_TYPE_SESSION MessageType = 2
+	MESSAGE_TYPE_GROUP   MessageType = 3
 )
 
 func ParseRequestResponseType(v uint64) (RequestResponseType, error) {
@@ -56,9 +59,7 @@ func ParseRequestResponseType(v uint64) (RequestResponseType, error) {
 //PullOldMsgRequestMsg(7, "PullOldMsgRequest", PullOldMsgRequest.class),
 //PullOldMsgResponseMsg(8, "PullOldMsgResponse", PullOldMsgResponse.class),
 //
-//// 客户端发送信息
-//SendMsgRequestMsg(9, "SendMsgRequest", SendMsgRequest.class),
-//SendMsgResponseMsg(10, "SendMsgResponse", SendMsgResponse.class),
+
 //
 //// 新消息通知
 //NewMsgInfo(11, "NewMessage", NewMessage.class),

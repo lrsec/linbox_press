@@ -43,7 +43,7 @@ func (codec *MsgCodec) Encode(rrType message.RequestResponseType, content interf
 	binary.BigEndian.PutUint32(result[4:8], length)
 	copy(result[8:], encrypted)
 
-	log.Trace("After Encode: ", result)
+	log.Tracef("\nContent after encode: %v \nlength: %d", result, len(result))
 
 	return result, nil
 }

@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	//log "github.com/cihub/seelog"
 )
 
 const (
-	default_password = "medtree-im-passwmedtree-im-passw"
+	//default_password = "medtree-im-passwmedtree-im-passw"
+	default_password = "medtree-im-passw"
 )
 
 type AESCodec struct {
-	Password  []byte
-	block     cipher.Block
-	encrypter cipher.BlockMode
-	decrypter cipher.BlockMode
+	Password []byte
+	Iv       []byte
+	block    cipher.Block
 }
 
 func NewAESCodec() (*AESCodec, error) {
@@ -25,13 +26,10 @@ func NewAESCodec() (*AESCodec, error) {
 		return nil, err
 	}
 
-	iv := password[:16]
-
 	codec := new(AESCodec)
 	codec.Password = password
+	codec.Iv = password[:16]
 	codec.block = block
-	codec.encrypter = cipher.NewCBCEncrypter(block, iv)
-	codec.decrypter = cipher.NewCBCDecrypter(block, iv)
 
 	return codec, nil
 }
@@ -44,32 +42,28 @@ func (codec *AESCodec) ChangePassword(password string) error {
 		return err
 	}
 
-	length := len(password)
-
-	iv := make([]byte, 8*length, 8*length)
-	for i := 0; i < 8; i++ {
-		copy(iv[i*length:(i+1)*length], password)
-	}
-
 	codec.Password = pd
+	codec.Iv = pd[:16]
 	codec.block = block
-	codec.encrypter = cipher.NewCBCEncrypter(block, iv)
-	codec.decrypter = cipher.NewCBCDecrypter(block, iv)
 
 	return nil
 }
 
 func (codec *AESCodec) Encrypt(src []byte) []byte {
+	encrypter := cipher.NewCBCEncrypter(codec.block, codec.Iv)
 	src = PKCS7Padding(src, codec.block.BlockSize())
+
 	dst := make([]byte, len(src))
-	codec.encrypter.CryptBlocks(dst, src)
+	encrypter.CryptBlocks(dst, src)
 
 	return dst
 }
 
 func (codec *AESCodec) Decrypt(src []byte) []byte {
+	decrypter := cipher.NewCBCDecrypter(codec.block, codec.Iv)
+
 	dst := make([]byte, len(src))
-	codec.decrypter.CryptBlocks(dst, src)
+	decrypter.CryptBlocks(dst, src)
 	dst = PKCS7UnPadding(dst, codec.block.BlockSize())
 
 	return dst

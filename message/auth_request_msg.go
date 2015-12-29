@@ -13,7 +13,7 @@ type AuthRequest struct {
 
 func NewAuthRequest(userId int64, token, ip, port, device string) *AuthRequest {
 	request := &AuthRequest{
-		RId:    time.Now().UnixNano() / 1000,
+		RId:    time.Now().UnixNano() / 1000000,
 		UserId: userId,
 		Token:  token,
 		Ip:     ip,
