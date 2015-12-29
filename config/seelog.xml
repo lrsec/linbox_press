@@ -1,0 +1,7 @@
+<seelog>
+    <outputs>
+        <filter levels="info" >
+            <console/>
+        </filter>
+    </outputs>
+</seelog>

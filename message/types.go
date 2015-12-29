@@ -1,7 +1,5 @@
 package message
 
-import "errors"
-
 type RequestResponseType uint16
 
 const (
@@ -34,20 +32,7 @@ const (
 	MESSAGE_TYPE_GROUP   MessageType = 3
 )
 
-func ParseRequestResponseType(v uint64) (RequestResponseType, error) {
-	switch v {
-	case uint64(AUTH_REQUEST_MSG):
-		return AUTH_REQUEST_MSG, nil
-	case uint64(AUTH_RESPONSE_MSG):
-		return AUTH_RESPONSE_MSG, nil
-	default:
-		return INVALID_REQUEST_RESPONSE_TYPE, errors.New("Can not parse value as valid RequestResponseType")
-	}
-}
-
-//
-//
-//// 客户端同步未读信息
+// 客户端同步未读信息
 //SyncUnreadRequestMsg(3, "SyncUnreadRequest", SyncUnreadRequest.class),
 //SyncUnreadResponseMsg(4, "SyncUnreadResponse", SyncUnreadResponse.class),
 //

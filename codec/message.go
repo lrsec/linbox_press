@@ -43,15 +43,13 @@ func (codec *MsgCodec) Encode(rrType message.RequestResponseType, content interf
 	binary.BigEndian.PutUint32(result[4:8], length)
 	copy(result[8:], encrypted)
 
-	log.Tracef("\nContent after encode: %v \nlength: %d", result, len(result))
-
 	return result, nil
 }
 
 func (codec *MsgCodec) Decode(content []byte, result interface{}) error {
 	decrypted := codec.aesCodec.Decrypt(content)
 
-	log.Info("Decrypted: ", string(decrypted))
+	log.Debug("Decrypted: ", string(decrypted))
 
 	err := json.Unmarshal(decrypted, result)
 
