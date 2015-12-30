@@ -216,6 +216,7 @@ func sendMessage(conn net.Conn, coder *codec.MsgCodec, closeSignal chan bool, se
 
 		content, err := coder.Encode(message.SEND_MSG_REQUEST_MSG, requestPtr)
 		if err != nil {
+			log.Error(err)
 			panic(err)
 		}
 
@@ -223,30 +224,35 @@ func sendMessage(conn net.Conn, coder *codec.MsgCodec, closeSignal chan bool, se
 
 		_, err = conn.Write(content)
 		if err != nil {
+			log.Error(err)
 			panic(err)
 		}
 
 		// version 信息,不关心
 		_, err = reader.Discard(2)
 		if err != nil {
+			log.Error(err)
 			panic(err)
 		}
 
 		// Type
 		typeRaw, err := reader.Peek(2)
 		if err != nil {
+			log.Error(err)
 			panic(err)
 		}
 		reader.Discard(2)
 
 		responseType := message.RequestResponseType(binary.BigEndian.Uint16(typeRaw))
 		if responseType != message.SEND_MSG_RESPONSE_MSG {
+			log.Error(err)
 			panic(errors.New("Received answer is not SEND_MSG_RESPONSE_MSG"))
 		}
 
 		// length
 		lengthRaw, err := reader.Peek(4)
 		if err != nil {
+			log.Error(err)
 			panic(err)
 		}
 		reader.Discard(4)
@@ -256,6 +262,7 @@ func sendMessage(conn net.Conn, coder *codec.MsgCodec, closeSignal chan bool, se
 		// content
 		contentRaw, err := reader.Peek(int(length))
 		if err != nil {
+			log.Error(err)
 			panic(err)
 		}
 		reader.Discard(int(length))
@@ -265,10 +272,12 @@ func sendMessage(conn net.Conn, coder *codec.MsgCodec, closeSignal chan bool, se
 		response := message.SendMsgResponse{}
 		err = coder.Decode(contentRaw, &response)
 		if err != nil {
+			log.Error(err)
 			panic(err)
 		}
 
 		if response.Status != 200 {
+			log.Error(err)
 			panic(errors.New("Send Message Response fail: " + response.ErrMsg))
 		} else {
 			monitor.submit(endTime - startTime)
